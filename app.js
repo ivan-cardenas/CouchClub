@@ -313,34 +313,20 @@ async function toggleSeen(t,on){
 }
 
 /* ---------- IMDb lookup ---------- */
-// The suggestion endpoint gives title, year, type and cover; ratings come from IMDb's GraphQL API in one batched call.
-// Both allow browser requests. IMDb permits this for personal, non-commercial use only.
-const IMDB_KINDS={movie:'movie',tvMovie:'movie',short:'movie',video:'movie',tvSpecial:'movie',tvSeries:'series',tvMiniSeries:'series'};
+// IMDb only accepts browser requests from its own sites, so searches go through the "imdb" Edge Function
+// (supabase/functions/imdb). It returns up to 8 matches with cover, year, type and IMDb score.
 const imdbUrl=id=>'https://www.imdb.com/title/'+id+'/';
 const fmtRating=r=>Number(r).toFixed(1);
 // Amazon image URLs take a size suffix; ask for a small one instead of the full-size original
 const sizedPoster=(url,w)=>url.replace(/\._V1_.*\.jpg$/,'._V1_UX'+w+'_.jpg');
 
-async function imdbSearch(q,signal){
-  const first=/^[a-z0-9]/i.test(q)?q[0].toLowerCase():'x';
-  const res=await fetch('https://v3.sg.media-imdb.com/suggestion/'+first+'/'+encodeURIComponent(q.toLowerCase())+'.json',{signal});
-  if (!res.ok) throw new Error('IMDb search failed');
-  const {d=[]}=await res.json();
-  return d.filter(x=>x.id?.startsWith('tt')&&IMDB_KINDS[x.qid]).slice(0,8).map(x=>({
-    imdbId:x.id,title:x.l,year:x.y||null,kind:IMDB_KINDS[x.qid],cast:x.s||'',poster:x.i?.imageUrl||null,rating:null}));
-}
-async function imdbRatings(ids,signal){
-  if (!ids.length) return {};
-  const res=await fetch('https://caching.graphql.imdb.com/',{method:'POST',signal,
-    headers:{'content-type':'application/json','x-imdb-client-name':'imdb-web-next'},
-    body:JSON.stringify({query:'query($ids:[ID!]!){titles(ids:$ids){id ratingsSummary{aggregateRating}}}',variables:{ids}})});
-  if (!res.ok) return {};
-  const {data}=await res.json(); const out={};
-  for (const t of data?.titles||[]) if (t?.ratingsSummary?.aggregateRating!=null) out[t.id]=t.ratingsSummary.aggregateRating;
-  return out;
+async function imdbSearch(q){
+  const {data,error}=await sb.functions.invoke('imdb',{body:{q}});
+  if (error || data?.error) throw error || new Error(data.error);
+  return data.results||[];
 }
 
-const SG={items:[],active:-1,ctl:null,timer:null};
+const SG={items:[],active:-1,seq:0,timer:null};
 function closeSuggest(){ SG.items=[]; SG.active=-1; $('imdbList').hidden=true; $('fTitle').setAttribute('aria-expanded','false'); $('fTitle').removeAttribute('aria-activedescendant'); }
 function renderSuggest(status){
   const ul=$('imdbList'); ul.replaceChildren();
@@ -354,14 +340,17 @@ function renderSuggest(status){
   if (SG.active>=0) $('fTitle').setAttribute('aria-activedescendant','sg-'+SG.active); else $('fTitle').removeAttribute('aria-activedescendant');
 }
 async function runSearch(q){
-  SG.ctl?.abort(); const ctl=SG.ctl=new AbortController();
+  const seq=++SG.seq;
   try {
-    SG.items=await imdbSearch(q,ctl.signal); SG.active=-1;
-    renderSuggest(SG.items.length?null:'No IMDb matches. You can still add it as typed.');
-    const ratings=await imdbRatings(SG.items.map(x=>x.imdbId),ctl.signal);
-    for (const it of SG.items) it.rating=ratings[it.imdbId]??null;
-    if (SG.ctl===ctl && !$('imdbList').hidden) renderSuggest();
-  } catch(e){ if (e.name!=='AbortError'){ SG.items=[]; renderSuggest('Could not reach IMDb. You can still add it as typed.'); } }
+    const items=await imdbSearch(q);
+    if (seq!==SG.seq) return;  // a newer search has started
+    SG.items=items; SG.active=-1;
+    renderSuggest(items.length?null:'No IMDb matches. You can still add it as typed.');
+  } catch(e){
+    if (seq!==SG.seq) return;
+    console.error('IMDb lookup failed', e);
+    SG.items=[]; renderSuggest('Could not reach IMDb. You can still add it as typed.');
+  }
 }
 function setPick(p){
   S.pick=p; const box=$('picked'); box.replaceChildren(); box.hidden=!p;
@@ -379,7 +368,7 @@ function choose(it){
 $('fTitle').addEventListener('input',()=>{
   if (S.pick && $('fTitle').value!==S.pick.title) setPick(null);
   clearTimeout(SG.timer); const q=$('fTitle').value.trim();
-  if (q.length<2){ SG.ctl?.abort(); closeSuggest(); return; }
+  if (q.length<2){ SG.seq++; closeSuggest(); return; }
   SG.timer=setTimeout(()=>runSearch(q),250);
 });
 $('fTitle').addEventListener('keydown',e=>{
