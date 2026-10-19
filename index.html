@@ -56,6 +56,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .panel p{margin:0;color:var(--muted)}
 .panel form{display:flex;flex-wrap:wrap;gap:8px}
 .panel form .field{flex:1 1 220px;min-width:0}
+.panel form.pwform{flex-direction:column}
+.panel form.pwform .field{flex:none}
+.panel form.pwform .primary{align-self:flex-start}
 
 .add{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
 .addrow{display:flex;flex-wrap:wrap;gap:8px}
@@ -147,13 +150,18 @@ label.check{display:flex;align-items:center;gap:6px;cursor:pointer}
 
   <!-- Signed out -->
   <section class="panel" id="signin" hidden>
-    <h2>Sign in</h2>
-    <p>Enter your email and we'll send you a sign-in link. New here? You'll join with the club code right after.</p>
-    <form id="signinForm">
-      <input class="field" id="signinEmail" type="email" placeholder="you@example.com" required autocomplete="email" aria-label="Email">
-      <button class="primary" id="signinBtn" type="submit">Send link</button>
+    <div class="seg" role="group" aria-label="Sign in or create an account" style="align-self:flex-start">
+      <button type="button" id="modeIn" aria-pressed="true">Sign in</button>
+      <button type="button" id="modeUp" aria-pressed="false">Create account</button>
+    </div>
+    <p id="authHint">Welcome back. Sign in with your email and password.</p>
+    <form id="pwForm" class="pwform">
+      <input class="field" id="authEmail" type="email" placeholder="you@example.com" required autocomplete="email" aria-label="Email">
+      <input class="field" id="authPass" type="password" placeholder="Password (6+ characters)" required minlength="6" autocomplete="current-password" aria-label="Password">
+      <button class="primary" id="authBtn" type="submit">Sign in</button>
     </form>
     <p id="signinMsg" hidden></p>
+    <div><button type="button" class="linkbtn" id="linkInstead">Email me a sign-in link instead</button></div>
   </section>
 
   <!-- Signed in but not a member yet: join with the club code -->
@@ -321,14 +329,50 @@ function start(){
 }
 function setWritable(on){ for (const el of $('addForm').querySelectorAll('input,button')) el.disabled=!on; }
 
-$('signinForm').addEventListener('submit', async e=>{
+let authMode='in';
+function setAuthMode(m){
+  authMode=m;
+  $('modeIn').setAttribute('aria-pressed',String(m==='in')); $('modeUp').setAttribute('aria-pressed',String(m==='up'));
+  $('authBtn').textContent = m==='in' ? 'Sign in' : 'Create account';
+  $('authPass').autocomplete = m==='in' ? 'current-password' : 'new-password';
+  $('authHint').textContent = m==='in' ? 'Welcome back. Sign in with your email and password.'
+    : 'New here? Pick a password. You’ll enter the club code right after.';
+  $('signinMsg').hidden=true;
+}
+$('modeIn').onclick=()=>setAuthMode('in'); $('modeUp').onclick=()=>setAuthMode('up');
+function authMsg(text){ const m=$('signinMsg'); m.hidden=false; m.textContent=text; }
+
+$('pwForm').addEventListener('submit', async e=>{
   e.preventDefault();
-  const email=$('signinEmail').value.trim(); if(!email) return;
-  $('signinBtn').disabled=true;
+  const email=$('authEmail').value.trim(), password=$('authPass').value;
+  if(!email||password.length<6){ authMsg('Enter your email and a password of at least 6 characters.'); return; }
+  $('authBtn').disabled=true;
+  let res;
+  if (authMode==='in') res = await sb.auth.signInWithPassword({email,password});
+  else res = await sb.auth.signUp({email,password,options:{emailRedirectTo: location.origin+location.pathname}});
+  $('authBtn').disabled=false;
+  const {data,error}=res;
+  if (error){
+    if (/invalid login/i.test(error.message)) authMsg('Wrong email or password. New here? Choose “Create account”.');
+    else if (/already registered/i.test(error.message)) authMsg('That email already has an account. Choose “Sign in”.');
+    else authMsg(error.message);
+    return;
+  }
+  if (authMode==='up' && !data.session){
+    // Either email confirmation is still on in Supabase, or this email already has an account
+    authMsg('Account created, but it needs confirming by email first. If you already have an account, choose “Sign in”.');
+  }
+  // With a session, onAuthStateChange takes over
+});
+
+$('linkInstead').addEventListener('click', async ()=>{
+  const email=$('authEmail').value.trim();
+  if(!email){ authMsg('Type your email first, then tap the link option again.'); $('authEmail').focus(); return; }
   const {error} = await sb.auth.signInWithOtp({email, options:{emailRedirectTo: location.origin+location.pathname, shouldCreateUser:true}});
-  $('signinBtn').disabled=false;
-  const msg=$('signinMsg'); msg.hidden=false;
-  msg.textContent = error ? 'Could not send the link: '+error.message : `Check ${email} for a sign-in link. Open it on this device.`;
+  authMsg(error ? (/rate limit/i.test(error.message)
+      ? 'Too many sign-in emails were sent recently. Use your password instead, or try the link again in an hour.'
+      : 'Could not send the link: '+error.message)
+    : `Check ${email} for a sign-in link and open it in this browser.`);
 });
 $('joinForm').addEventListener('submit', async e=>{
   e.preventDefault();
