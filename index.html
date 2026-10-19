@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Couch Club</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@50..150,400..900&family=Figtree:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow column of ticket-shaped cards; the stub on each ticket is the "I've seen it" control. */
+:root{
+  --bg:#EBEFF3; --surface:#FFFFFF; --ink:#15202B; --muted:#5B6876; --line:#D2D9E0;
+  --accent:#E9A21C; --accent-ink:#1B1406; --seen:#23785A; --seen-soft:#DDEFE7; --danger:#B3402E;
+  --display:"Anybody","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"DM Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0E141B; --surface:#17212B; --ink:#E7ECF1; --muted:#95A3B1; --line:#283441;
+  --accent:#F2B43C; --accent-ink:#1B1406; --seen:#62C79C; --seen-soft:#173328; --danger:#E7826F; color-scheme:dark}}
+
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+[hidden]{display:none!important}
+.wrap{max-width:780px;margin:0 auto;padding-block:28px 64px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:22px}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 20px}
+.brand h1{margin:0;font-family:var(--display);font-stretch:62%;font-weight:900;font-size:clamp(2.6rem,9vw,3.6rem);
+  line-height:.9;letter-spacing:.01em;text-transform:uppercase}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:6px 0 0;color:var(--muted);max-width:44ch}
+.me{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.club{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stack{display:flex}
+.stack .av{border:2px solid var(--bg);margin-left:-7px}
+.stack .av:first-child{margin-left:0}
+.av{display:inline-grid;place-items:center;flex:none;width:24px;height:24px;border-radius:50%;color:#fff;font-size:10px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.namebtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px 4px 4px;display:flex;align-items:center;gap:8px;cursor:pointer}
+.namebtn small{color:var(--muted)}
+.nameedit{display:flex;gap:6px}
+.nameedit input{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:6px 10px;width:160px}
+.signout{border:0;background:none;color:var(--muted);font-size:13px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:0}
+
+.notice{border:1px dashed var(--line);border-radius:10px;padding:10px 14px;color:var(--muted);font-size:14px}
+
+/* Sign-in panel */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:12px;max-width:460px}
+.panel h2{margin:0;font-family:var(--display);font-stretch:70%;font-weight:800;font-size:1.6rem;text-transform:uppercase}
+.panel p{margin:0;color:var(--muted)}
+.panel form{display:flex;flex-wrap:wrap;gap:8px}
+.panel form .field{flex:1 1 220px;min-width:0}
+
+.add{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.addrow{display:flex;flex-wrap:wrap;gap:8px}
+.addrow .grow{flex:1 1 220px;min-width:0}
+.field{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:10px 12px;width:100%}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--bg)}
+.seg button{border:0;background:transparent;padding:9px 14px;cursor:pointer;color:var(--muted);font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.primary{border:0;background:var(--accent);color:var(--accent-ink);font-weight:700;border-radius:9px;padding:10px 18px;cursor:pointer}
+.primary:disabled{opacity:.5;cursor:default}
+.more{display:grid;grid-template-columns:110px 1fr;gap:8px}
+.more .full{grid-column:1/-1}
+@media (max-width:480px){.more{grid-template-columns:1fr}}
+.addfoot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;font-size:14px;color:var(--muted)}
+.linkbtn{border:0;background:none;color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:0}
+label.check{display:flex;align-items:center;gap:6px;cursor:pointer}
+
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.filters button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:6px 13px;cursor:pointer;font-weight:600;font-size:14px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.filters button b{font-family:var(--mono);font-weight:500;font-size:12px}
+.filters button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+
+.list{display:flex;flex-direction:column;gap:14px}
+.card{position:relative;display:grid;grid-template-columns:1fr 132px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.card .main{padding:16px 18px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.stub{position:relative;border-left:2px dashed var(--line);padding:16px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}
+.stub::before,.stub::after{content:"";position:absolute;left:-10px;width:18px;height:18px;border-radius:50%;background:var(--bg);border:1px solid var(--line)}
+.stub::before{top:-10px;clip-path:inset(50% 0 0 0)} .stub::after{bottom:-10px;clip-path:inset(0 0 50% 0)}
+.count{font-family:var(--display);font-stretch:70%;font-weight:800;font-size:2.4rem;line-height:1;font-variant-numeric:tabular-nums}
+.count small{font-size:1.2rem;color:var(--muted);font-weight:600}
+.countlbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:-6px}
+.seenbtn{border:1.5px solid var(--ink);background:transparent;border-radius:9px;padding:8px 6px;width:100%;font-weight:700;font-size:13px;cursor:pointer}
+.seenbtn.on{background:var(--seen);border-color:var(--seen);color:var(--surface)}
+.seenbtn:disabled{opacity:.6;cursor:default}
+@media (max-width:520px){
+  .card{grid-template-columns:1fr}
+  .stub{border-left:0;border-top:2px dashed var(--line);flex-direction:row;justify-content:space-between;padding:12px 18px}
+  .stub::before,.stub::after{top:-10px;bottom:auto;clip-path:inset(50% 0 0 0)}
+  .stub::before{left:-10px} .stub::after{left:auto;right:-10px}
+  .countbox{display:flex;align-items:baseline;gap:8px}
+  .countlbl{margin-top:0}
+  .seenbtn{width:auto;padding:8px 14px}
+}
+.meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-family:var(--mono);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kind{border:1px solid currentColor;border-radius:4px;padding:1px 6px}
+.kind.series{color:var(--accent)}
+.ttl{margin:0;font-family:var(--display);font-stretch:80%;font-weight:800;font-size:1.55rem;line-height:1.1;text-wrap:balance;overflow-wrap:anywhere}
+.note{margin:0;opacity:.85;overflow-wrap:anywhere}
+.added{margin:0;font-size:13px;color:var(--muted)}
+.people{display:flex;flex-direction:column;gap:6px}
+.prow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.plabel{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);width:62px}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px 2px 2px;font-size:13px;border:1px solid var(--line)}
+.chip .av{width:20px;height:20px;font-size:9px}
+.chip.seen{background:var(--seen-soft);border-color:transparent}
+.chip.none{opacity:.75}
+.empty-row{font-size:13px;color:var(--muted)}
+.takes{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px}
+.take{display:flex;gap:8px;font-size:14px}
+.take .av{width:22px;height:22px;margin-top:1px}
+.take b{font-weight:600}
+.take p{margin:0;overflow-wrap:anywhere}
+.takein{display:flex;gap:6px}
+.takein input{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:7px 10px;font-size:14px}
+.hidden-takes{font-size:13px;color:var(--muted);font-style:italic}
+.talk{display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:var(--accent-ink);border-radius:4px;padding:1px 7px;font-weight:600}
+.cardfoot{display:flex;justify-content:flex-end}
+.remove{border:0;background:none;color:var(--muted);font-size:13px;cursor:pointer;padding:2px 0}
+.remove.armed{color:var(--danger);font-weight:700}
+
+.emptystate{border:2px dashed var(--line);border-radius:14px;padding:28px 22px;color:var(--muted)}
+.emptystate h2{margin:0 0 4px;color:var(--ink);font-family:var(--display);font-stretch:70%;font-weight:800;font-size:1.6rem;text-transform:uppercase}
+.emptystate p{margin:0;max-width:50ch}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:9px;font-size:14px;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:no-preference){.seenbtn{transition:background .15s,color .15s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1 id="brandName">Couch <span>Club</span></h1>
+      <p>Add a movie or series, tick it off when you've seen it, and find out who's ready to talk about it.</p>
+    </div>
+    <div class="me" id="me"></div>
+  </header>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <!-- Signed out -->
+  <section class="panel" id="signin" hidden>
+    <h2>Sign in</h2>
+    <p>Enter your email and we'll send you a sign-in link. New here? You'll join with the club code right after.</p>
+    <form id="signinForm">
+      <input class="field" id="signinEmail" type="email" placeholder="you@example.com" required autocomplete="email" aria-label="Email">
+      <button class="primary" id="signinBtn" type="submit">Send link</button>
+    </form>
+    <p id="signinMsg" hidden></p>
+  </section>
+
+  <!-- Signed in but not a member yet: join with the club code -->
+  <section class="panel" id="notMember" hidden>
+    <h2>Join the club</h2>
+    <p>Enter the club code a friend gave you.</p>
+    <form id="joinForm" autocomplete="off">
+      <input class="field" id="joinCode" required placeholder="Club code" aria-label="Club code" autocapitalize="off" spellcheck="false">
+      <button class="primary" id="joinBtn" type="submit">Join</button>
+    </form>
+    <p id="joinMsg" hidden></p>
+    <div><button class="signout" type="button" data-signout>Sign in with another email</button></div>
+  </section>
+
+  <!-- First visit: pick a name -->
+  <section class="panel" id="welcome" hidden>
+    <h2>Welcome in</h2>
+    <p>What should your friends call you?</p>
+    <form id="welcomeForm">
+      <input class="field" id="welcomeName" maxlength="30" required aria-label="Your name">
+      <button class="primary" type="submit">Join the club</button>
+    </form>
+  </section>
+
+  <!-- The app -->
+  <div id="app" hidden style="display:flex;flex-direction:column;gap:22px">
+    <form class="add" id="addForm" autocomplete="off">
+      <div class="addrow">
+        <div class="grow"><input class="field" id="fTitle" placeholder="Title, e.g. Severance" maxlength="120" aria-label="Title" required></div>
+        <div class="seg" role="group" aria-label="Type">
+          <button type="button" id="kMovie" aria-pressed="true">Movie</button>
+          <button type="button" id="kSeries" aria-pressed="false">Series</button>
+        </div>
+        <button class="primary" id="addBtn" type="submit">Add</button>
+      </div>
+      <div class="more" id="moreFields" hidden>
+        <input class="field" id="fYear" inputmode="numeric" placeholder="Year" maxlength="4" aria-label="Year">
+        <input class="field" id="fWhere" placeholder="Where to watch (Netflix, cinema…)" maxlength="60" aria-label="Where to watch">
+        <input class="field full" id="fNote" placeholder="Why should the others watch it?" maxlength="200" aria-label="Note">
+      </div>
+      <div class="addfoot">
+        <button type="button" class="linkbtn" id="moreToggle">Add year, where to watch, note</button>
+        <label class="check"><input type="checkbox" id="fSeen"> I've already seen it</label>
+      </div>
+    </form>
+    <nav class="filters" id="filters" aria-label="Filter"></nav>
+    <section class="list" id="list" aria-live="polite"></section>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const CFG = window.CC_CONFIG || {};
+const S = {uid:null,email:null,profiles:new Map(),titles:[],filter:'todo',kind:'movie',drafts:{},armed:null,
+  pending:new Set(),editingName:false,loaded:false,channel:null,started:false};
+try { const f = localStorage.getItem('cc-filter'); if (f) S.filter = f; } catch(e){}
+
+if (CFG.clubName && CFG.clubName !== 'Couch Club'){ $('brandName').textContent = CFG.clubName; document.title = CFG.clubName; }
+
+/* ---------- helpers ---------- */
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs||{})){
+    if (v==null || v===false) continue;
+    if (k==='class') el.className=v; else if (k==='text') el.textContent=v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2),v); else el.setAttribute(k,v===true?'':v);
+  }
+  for (const c of kids.flat()) if (c!=null && c!==false) el.append(c.nodeType?c:document.createTextNode(c));
+  return el;
+}
+let toastT; function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600);}
+function setNotice(msg){ $('notice').textContent=msg||''; $('notice').hidden=!msg; }
+function ago(ms){const s=(Date.now()-ms)/1000; if(s<60)return'just now'; const m=s/60; if(m<60)return Math.floor(m)+' min ago';
+  const hr=m/60; if(hr<24)return Math.floor(hr)+' h ago'; const d=hr/24; if(d<30)return Math.floor(d)+(Math.floor(d)===1?' day ago':' days ago');
+  return new Date(ms).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});}
+const isSeen=(t,id)=>!!(t.seen&&t.seen[id]);
+function nameOf(id){ return (S.profiles.get(id)||{}).nickname || 'Someone'; }
+function hue(id){ let x=0; for (const c of String(id)) x=(x*31+c.charCodeAt(0))>>>0; return x%360; }
+function avatar(id){
+  const n=nameOf(id).trim(); const parts=n.split(/\s+/);
+  const ini=(parts[0]?.[0]||'?')+(parts[1]?.[0]||'');
+  return h('span',{class:'av',style:`background:hsl(${hue(id)} 45% 42%)`,'aria-hidden':'true',text:ini});
+}
+function chip(id,cls){ return h('span',{class:'chip '+cls},avatar(id),nameOf(id)+(id===S.uid?' (you)':'')); }
+function show(view){ for (const v of ['signin','notMember','welcome','app']) $(v).hidden = v!==view; }
+
+/* ---------- setup check ---------- */
+if (!window.supabase || !CFG.url || CFG.url.includes('YOUR-PROJECT') || !CFG.key || CFG.key.includes('YOUR-')){
+  setNotice(!window.supabase ? 'Could not load the Supabase library. Check your connection and reload.'
+    : 'Setup needed: open config.js and paste your Supabase project URL and anon/publishable key. See the README.');
+  return;
+}
+const sb = window.supabase.createClient(CFG.url, CFG.key);
+
+/* ---------- data ---------- */
+let loadT;
+function scheduleLoad(){ clearTimeout(loadT); loadT=setTimeout(load,250); }
+async function load(){
+  const [p,t,v] = await Promise.all([
+    sb.from('profiles').select('id,nickname,joined_at').order('joined_at'),
+    sb.from('titles').select('*').order('added_at',{ascending:false}).limit(500),
+    sb.from('views').select('title_id,user_id,seen,seen_at,take')
+  ]);
+  const err = p.error||t.error||v.error;
+  if (err){ setNotice('Could not load the list: '+err.message); return; }
+  S.profiles = new Map(p.data.map(r=>[r.id,r]));
+  const byTitle = {};
+  for (const r of v.data){ const b=byTitle[r.title_id] ||= {seen:{},takes:{}};
+    if (r.seen) b.seen[r.user_id] = r.seen_at ? Date.parse(r.seen_at) : 1;
+    if (r.take) b.takes[r.user_id] = r.take; }
+  S.titles = t.data.map(r=>({id:r.id,title:r.title,kind:r.kind,year:r.year,where:r.where_to_watch,note:r.note,
+    addedBy:r.added_by,addedAt:Date.parse(r.added_at),...(byTitle[r.id]||{seen:{},takes:{}})}));
+  S.loaded = true; render();
+}
+function subscribe(){
+  if (S.channel) return;
+  S.channel = sb.channel('couch-club')
+    .on('postgres_changes',{event:'*',schema:'public',table:'titles'},scheduleLoad)
+    .on('postgres_changes',{event:'*',schema:'public',table:'views'},scheduleLoad)
+    .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},scheduleLoad)
+    .subscribe();
+  // Catch up when the tab comes back (phones pause sockets in the background)
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) scheduleLoad(); });
+}
+
+/* ---------- auth ---------- */
+async function handleSession(session){
+  if (!session){ S.uid=null; show('signin'); $('me').replaceChildren(); return; }
+  if (S.uid===session.user.id && (S.started || S.checking)) return;
+  S.uid = session.user.id; S.email = session.user.email; S.checking = true;
+  try { await checkMember(); } finally { S.checking = false; }
+}
+async function checkMember(){
+  setNotice('');
+  const {data:member, error} = await sb.rpc('is_member');
+  if (error){ setNotice('Could not check the club list: '+error.message); return; }
+  if (!member){
+    // Open club (no code set): join straight away. Otherwise ask for the code.
+    const {data:needsCode} = await sb.rpc('club_needs_code');
+    if (needsCode === false){
+      const {data:joined, error:jerr} = await sb.rpc('join_club',{code:null});
+      if (jerr || !joined){ setNotice('Could not join the club: '+(jerr?jerr.message:'try again')); return; }
+    } else {
+      $('joinMsg').hidden = true; $('joinCode').value = '';
+      show('notMember'); renderMe(); return;
+    }
+  }
+  await afterJoin();
+}
+async function afterJoin(){
+  const {data:prof} = await sb.from('profiles').select('id,nickname').eq('id',S.uid).maybeSingle();
+  if (!prof){
+    $('welcomeName').value = (S.email||'').split('@')[0].replace(/[._-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase()).slice(0,30);
+    show('welcome'); renderMe(); return;
+  }
+  start();
+}
+function start(){
+  S.started = true; show('app'); setWritable(true);
+  load(); subscribe();
+}
+function setWritable(on){ for (const el of $('addForm').querySelectorAll('input,button')) el.disabled=!on; }
+
+$('signinForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const email=$('signinEmail').value.trim(); if(!email) return;
+  $('signinBtn').disabled=true;
+  const {error} = await sb.auth.signInWithOtp({email, options:{emailRedirectTo: location.origin+location.pathname, shouldCreateUser:true}});
+  $('signinBtn').disabled=false;
+  const msg=$('signinMsg'); msg.hidden=false;
+  msg.textContent = error ? 'Could not send the link: '+error.message : `Check ${email} for a sign-in link. Open it on this device.`;
+});
+$('joinForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const code=$('joinCode').value.trim(); if(!code) return;
+  $('joinBtn').disabled=true;
+  const {data:joined, error} = await sb.rpc('join_club',{code});
+  $('joinBtn').disabled=false;
+  const msg=$('joinMsg');
+  if (error){ msg.hidden=false; msg.textContent='Could not join: '+error.message; return; }
+  if (!joined){ msg.hidden=false; msg.textContent='That code doesn’t match. Check it with the friend who sent it.'; return; }
+  await afterJoin();
+});
+$('welcomeForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const nickname=$('welcomeName').value.trim().slice(0,30); if(!nickname) return;
+  const {error} = await sb.from('profiles').upsert({id:S.uid,nickname});
+  if (error){ toast('Could not save your name: '+error.message); return; }
+  start();
+});
+document.addEventListener('click', async e=>{
+  if (!e.target.closest('[data-signout]')) return;
+  if (S.channel){ sb.removeChannel(S.channel); S.channel=null; }
+  S.started=false; S.loaded=false; S.titles=[]; S.profiles=new Map();
+  await sb.auth.signOut();
+});
+
+/* ---------- render ---------- */
+function groupIds(){
+  const ids=new Set(S.profiles.keys());
+  if (S.uid && S.profiles.has(S.uid)) ids.add(S.uid);
+  return [...ids];
+}
+function render(){ renderMe(); renderFilters(); renderList(); }
+
+function renderMe(){
+  const box=$('me'); box.replaceChildren();
+  if (!S.uid) return;
+  const ids=groupIds();
+  if (S.started && ids.length) box.append(h('div',{class:'club'},h('div',{class:'stack'},ids.slice(0,6).map(avatar)),ids.length+' in the club'));
+  if (S.started){
+    if (S.editingName){
+      const inp=h('input',{id:'nickInput',maxlength:'30',value:nameOf(S.uid),'aria-label':'Your name'});
+      const save=async()=>{ S.editingName=false; const v=inp.value.trim().slice(0,30); render();
+        if (v && v!==nameOf(S.uid)){ const {error}=await sb.from('profiles').update({nickname:v}).eq('id',S.uid);
+          if (error) toast('Could not save your name. Try again.'); else { toast('Name updated'); scheduleLoad(); } } };
+      inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();save();} if(e.key==='Escape'){S.editingName=false;render();} });
+      box.append(h('div',{class:'nameedit'},inp,h('button',{class:'primary',type:'button',onclick:save,text:'Save'})));
+      setTimeout(()=>inp.focus(),0);
+    } else {
+      box.append(h('button',{class:'namebtn',type:'button',title:'Change the name your friends see',onclick:()=>{S.editingName=true;render();}},
+        avatar(S.uid),nameOf(S.uid),h('small',{text:'edit'})));
+    }
+  }
+  box.append(h('button',{class:'signout',type:'button','data-signout':true,text:'Sign out'}));
+}
+
+const FILTERS=[['todo','To watch'],['talk','Ready to talk'],['seen','Seen'],['all','All']];
+function matches(t,f){ const me=isSeen(t,S.uid);
+  if (f==='todo') return !me; if (f==='seen') return me;
+  if (f==='talk') return me && Object.keys(t.seen||{}).some(k=>k!==S.uid&&t.seen[k]); return true; }
+function renderFilters(){
+  const nav=$('filters'); nav.replaceChildren();
+  for (const [k,label] of FILTERS){
+    const n=S.titles.filter(t=>matches(t,k)).length;
+    nav.append(h('button',{type:'button','aria-pressed':String(S.filter===k),
+      onclick:()=>{S.filter=k;try{localStorage.setItem('cc-filter',k)}catch(e){};render();}},label,h('b',{text:String(n)})));
+  }
+}
+
+function renderList(){
+  const list=$('list');
+  const ae=document.activeElement, keep=ae&&list.contains(ae)?ae.id:null, caret=keep?ae.selectionStart:null;
+  list.replaceChildren();
+  if (!S.loaded){ list.append(h('div',{class:'emptystate'},h('h2',{text:'Loading the club'}),h('p',{text:'Your group’s watchlist will appear here.'}))); return; }
+  const rows=S.titles.filter(t=>matches(t,S.filter));
+  if (!rows.length){
+    const msg = S.titles.length===0
+      ? ['Nothing on the list yet','Add the first movie or series your friends should see. Everyone in the club can tick it off when they’ve watched it.']
+      : ({todo:['You’re all caught up','Everything on the list is marked as seen by you. Add something new for the others.'],
+          talk:['Nobody to talk to yet','Titles show up here once you and at least one friend have both seen them.'],
+          seen:['Nothing ticked off yet','Tap “I’ve seen it” on a title once you’ve watched it.']}[S.filter]||['Nothing here','']);
+    list.append(h('div',{class:'emptystate'},h('h2',{text:msg[0]}),h('p',{text:msg[1]})));
+    return;
+  }
+  const ids=groupIds();
+  for (const t of rows) list.append(card(t,ids));
+  if (keep){ const el=$(keep); if(el){ el.focus(); try{ if(caret!=null) el.setSelectionRange(caret,caret);}catch(e){} } }
+}
+
+function card(t,ids){
+  const me=isSeen(t,S.uid);
+  const seenIds=ids.filter(id=>isSeen(t,id)).sort((a,b)=>t.seen[a]-t.seen[b]);
+  const notIds=ids.filter(id=>!isSeen(t,id));
+  const others=seenIds.filter(id=>id!==S.uid);
+  const meta=h('div',{class:'meta'},
+    h('span',{class:'kind '+(t.kind==='series'?'series':''),text:t.kind==='series'?'Series':'Movie'}),
+    t.year?h('span',{text:String(t.year)}):null,
+    t.where?h('span',{text:t.where}):null,
+    me&&others.length?h('span',{class:'talk',text:'Talk with '+others.length}):null);
+  const people=h('div',{class:'people'},
+    h('div',{class:'prow'},h('span',{class:'plabel',text:'Seen'}),seenIds.length?seenIds.map(id=>chip(id,'seen')):h('span',{class:'empty-row',text:'No one yet'})),
+    h('div',{class:'prow'},h('span',{class:'plabel',text:'Not yet'}),notIds.length?notIds.map(id=>chip(id,'none')):h('span',{class:'empty-row',text:'Everyone has seen it'})));
+
+  const takeIds=Object.keys(t.takes||{}).filter(id=>t.takes[id]&&isSeen(t,id));
+  let takes=null;
+  if (me){
+    const mine=(t.takes||{})[S.uid]||'';
+    const inp=h('input',{id:'take-'+t.id,maxlength:'280',placeholder:'Your take, in a line',value:S.drafts[t.id]??mine,'aria-label':'Your take on '+t.title});
+    const save=async()=>{ const v=inp.value.trim().slice(0,280); if (v===mine){ delete S.drafts[t.id]; return; }
+      const key='take'+t.id; if (S.pending.has(key)) return; S.pending.add(key);
+      const {error}=await sb.from('views').upsert({title_id:t.id,user_id:S.uid,take:v||null},{onConflict:'title_id,user_id'});
+      S.pending.delete(key);
+      if (error) toast('Could not save your take. Try again.'); else { delete S.drafts[t.id]; toast(v?'Take saved':'Take removed'); scheduleLoad(); } };
+    inp.addEventListener('input',()=>{S.drafts[t.id]=inp.value;});
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();inp.blur();} });
+    inp.addEventListener('change',save);
+    takes=h('div',{class:'takes'},
+      takeIds.filter(id=>id!==S.uid).map(id=>h('div',{class:'take'},avatar(id),h('p',{},h('b',{text:nameOf(id)+': '}),t.takes[id]))),
+      h('div',{class:'takein'},inp));
+  } else if (takeIds.length){
+    takes=h('div',{class:'takes'},h('span',{class:'hidden-takes',text:takeIds.length+(takeIds.length===1?' take':' takes')+' hidden until you’ve seen it'}));
+  }
+
+  const armed=S.armed===t.id;
+  const foot=t.addedBy===S.uid?h('div',{class:'cardfoot'},h('button',{type:'button',class:'remove'+(armed?' armed':''),
+    text:armed?'Tap again to remove':'Remove',onclick:async()=>{
+      if(!armed){ S.armed=t.id; render(); setTimeout(()=>{ if(S.armed===t.id){S.armed=null;render();} },4000); return; }
+      S.armed=null; const {error}=await sb.from('titles').delete().eq('id',t.id);
+      if (error) toast('Could not remove it. Try again.'); else { toast('Removed “'+t.title+'”'); scheduleLoad(); } }})):null;
+
+  const main=h('div',{class:'main'},meta,h('h3',{class:'ttl',text:t.title}),
+    t.note?h('p',{class:'note',text:t.note}):null,
+    h('p',{class:'added',text:'Added by '+nameOf(t.addedBy)+(t.addedBy===S.uid?' (you)':'')+' · '+ago(t.addedAt)}),
+    people,takes,foot);
+  const busy=S.pending.has('seen'+t.id);
+  const stub=h('div',{class:'stub'},
+    h('div',{class:'countbox'},h('div',{class:'count'},String(seenIds.length),h('small',{text:'/'+ids.length})),h('div',{class:'countlbl',text:'have seen'})),
+    h('button',{type:'button',class:'seenbtn'+(me?' on':''),'aria-pressed':String(me),disabled:busy||null,
+      text:me?'✓ You’ve seen it':'I’ve seen it',onclick:()=>toggleSeen(t,!me)}));
+  return h('article',{class:'card'},main,stub);
+}
+
+async function toggleSeen(t,on){
+  const key='seen'+t.id; if (S.pending.has(key)) return; S.pending.add(key);
+  // Optimistic update so the tap feels instant
+  t.seen={...t.seen}; if (on) t.seen[S.uid]=Date.now(); else delete t.seen[S.uid]; render();
+  const {error}=await sb.from('views').upsert({title_id:t.id,user_id:S.uid,seen:on,seen_at:on?new Date().toISOString():null},{onConflict:'title_id,user_id'});
+  S.pending.delete(key);
+  if (error) toast('Could not update. Try again.'); else if (on) toast('Marked “'+t.title+'” as seen');
+  scheduleLoad();
+}
+
+/* ---------- add form ---------- */
+function setKind(k){ S.kind=k; $('kMovie').setAttribute('aria-pressed',String(k==='movie')); $('kSeries').setAttribute('aria-pressed',String(k==='series')); }
+$('kMovie').onclick=()=>setKind('movie'); $('kSeries').onclick=()=>setKind('series');
+$('moreToggle').onclick=()=>{ const m=$('moreFields'); m.hidden=!m.hidden; $('moreToggle').textContent=m.hidden?'Add year, where to watch, note':'Hide details'; };
+$('addForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const title=$('fTitle').value.trim().slice(0,120); if(!title){ $('fTitle').focus(); return; }
+  const dup=S.titles.find(t=>t.title.toLowerCase()===title.toLowerCase());
+  if (dup){ toast('“'+dup.title+'” is already on the list'); return; }
+  const yr=parseInt($('fYear').value,10);
+  const row={title,kind:S.kind,year:(yr>1880&&yr<2100)?yr:null,where_to_watch:$('fWhere').value.trim().slice(0,60)||null,
+    note:$('fNote').value.trim().slice(0,200)||null,added_by:S.uid};
+  const seenToo=$('fSeen').checked;
+  $('addBtn').disabled=true;
+  const {data,error}=await sb.from('titles').insert(row).select('id').single();
+  if (!error && seenToo) await sb.from('views').upsert({title_id:data.id,user_id:S.uid,seen:true},{onConflict:'title_id,user_id'});
+  $('addBtn').disabled=false;
+  if (error){ toast(error.code==='23505'?'“'+title+'” is already on the list':'Could not add it: '+error.message); return; }
+  for (const id of ['fTitle','fYear','fWhere','fNote']) $(id).value=''; $('fSeen').checked=false;
+  toast('Added “'+title+'”');
+  if (S.filter!=='all' && !(S.filter==='todo'&&!seenToo) && !(S.filter==='seen'&&seenToo)){ S.filter='all'; }
+  scheduleLoad();
+});
+
+/* ---------- boot ---------- */
+sb.auth.onAuthStateChange((_ev,session)=>{ setTimeout(()=>handleSession(session),0); });
+sb.auth.getSession().then(({data})=>handleSession(data.session));
+})();
+</script>
+</body>
+</html>
